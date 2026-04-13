@@ -1,8 +1,8 @@
-# Workspace
+# TaskTracker Workspace
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+Full-stack task tracker web app. Managers create and assign tasks to employees. Employees track status, progress, and expected completion. Both roles can view feedback.
 
 ## Stack
 
@@ -12,16 +12,42 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
 - **Database**: PostgreSQL + Drizzle ORM
+- **Frontend**: React + Vite + Tailwind CSS (Shadcn/ui components)
+- **Auth**: express-session (email + password, hashed with SHA-256)
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Architecture
+
+- `artifacts/api-server/` — Express backend with routes for auth, users, tasks
+- `artifacts/task-tracker/` — React frontend, served at `/`
+- `lib/db/` — Drizzle ORM schema (users, tasks, task_assignees tables)
+- `lib/api-spec/openapi.yaml` — OpenAPI spec (source of truth for API contract)
+- `lib/api-client-react/` — Generated React Query hooks
+- `lib/api-zod/` — Generated Zod schemas for server-side validation
+
+## Features
+
+- Email login with two roles: manager and employee
+- Manager: create tasks, assign to employees, set deadlines, give feedback, update status
+- Employee: view assigned tasks, update status, set completion %, set expected time
+- Dashboard with task summary (todo/in progress/done counts)
+- Filter tasks: all / pending / completed
+
+## Demo Accounts
+
+- manager@example.com / password123 (Manager role)
+- alice@example.com / password123 (Employee role)
+- bob@example.com / password123 (Employee role)
+
 ## Key Commands
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
+- `pnpm --filter @workspace/task-tracker run dev` — run frontend locally
 
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+## Session / Auth
+
+Uses express-session with SHA-256 password hashing. Session cookie is httpOnly. The `SESSION_SECRET` environment variable is used as the session secret.
