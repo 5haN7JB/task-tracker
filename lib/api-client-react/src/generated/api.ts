@@ -26,6 +26,7 @@ import type {
   MessageResponse,
   TaskSummary,
   TaskWithAssignees,
+  UpdateMyProgressBody,
   UpdateTaskBody,
   User,
 } from "./api.schemas";
@@ -39,9 +40,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
-/**
- * @summary Health check
- */
 export const getHealthCheckUrl = () => {
   return `/api/healthz`;
 };
@@ -90,10 +88,6 @@ export type HealthCheckQueryResult = NonNullable<
 >;
 export type HealthCheckQueryError = ErrorType<unknown>;
 
-/**
- * @summary Health check
- */
-
 export function useHealthCheck<
   TData = Awaited<ReturnType<typeof healthCheck>>,
   TError = ErrorType<unknown>,
@@ -114,9 +108,6 @@ export function useHealthCheck<
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-/**
- * @summary Login with email and password
- */
 export const getLoginUrl = () => {
   return `/api/auth/login`;
 };
@@ -177,9 +168,6 @@ export type LoginMutationResult = NonNullable<
 export type LoginMutationBody = BodyType<LoginBody>;
 export type LoginMutationError = ErrorType<ErrorResponse>;
 
-/**
- * @summary Login with email and password
- */
 export const useLogin = <
   TError = ErrorType<ErrorResponse>,
   TContext = unknown,
@@ -200,9 +188,6 @@ export const useLogin = <
   return useMutation(getLoginMutationOptions(options));
 };
 
-/**
- * @summary Logout
- */
 export const getLogoutUrl = () => {
   return `/api/auth/logout`;
 };
@@ -258,9 +243,6 @@ export type LogoutMutationResult = NonNullable<
 
 export type LogoutMutationError = ErrorType<unknown>;
 
-/**
- * @summary Logout
- */
 export const useLogout = <
   TError = ErrorType<unknown>,
   TContext = unknown,
@@ -281,9 +263,6 @@ export const useLogout = <
   return useMutation(getLogoutMutationOptions(options));
 };
 
-/**
- * @summary Get current user
- */
 export const getGetMeUrl = () => {
   return `/api/auth/me`;
 };
@@ -324,10 +303,6 @@ export const getGetMeQueryOptions = <
 export type GetMeQueryResult = NonNullable<Awaited<ReturnType<typeof getMe>>>;
 export type GetMeQueryError = ErrorType<ErrorResponse>;
 
-/**
- * @summary Get current user
- */
-
 export function useGetMe<
   TData = Awaited<ReturnType<typeof getMe>>,
   TError = ErrorType<ErrorResponse>,
@@ -344,9 +319,6 @@ export function useGetMe<
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-/**
- * @summary List all users (manager only)
- */
 export const getListUsersUrl = () => {
   return `/api/users`;
 };
@@ -389,10 +361,6 @@ export type ListUsersQueryResult = NonNullable<
 >;
 export type ListUsersQueryError = ErrorType<unknown>;
 
-/**
- * @summary List all users (manager only)
- */
-
 export function useListUsers<
   TData = Awaited<ReturnType<typeof listUsers>>,
   TError = ErrorType<unknown>,
@@ -409,9 +377,6 @@ export function useListUsers<
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-/**
- * @summary List tasks (managers see all, employees see assigned)
- */
 export const getListTasksUrl = () => {
   return `/api/tasks`;
 };
@@ -456,10 +421,6 @@ export type ListTasksQueryResult = NonNullable<
 >;
 export type ListTasksQueryError = ErrorType<unknown>;
 
-/**
- * @summary List tasks (managers see all, employees see assigned)
- */
-
 export function useListTasks<
   TData = Awaited<ReturnType<typeof listTasks>>,
   TError = ErrorType<unknown>,
@@ -476,9 +437,6 @@ export function useListTasks<
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-/**
- * @summary Create a task (manager only)
- */
 export const getCreateTaskUrl = () => {
   return `/api/tasks`;
 };
@@ -539,9 +497,6 @@ export type CreateTaskMutationResult = NonNullable<
 export type CreateTaskMutationBody = BodyType<CreateTaskBody>;
 export type CreateTaskMutationError = ErrorType<unknown>;
 
-/**
- * @summary Create a task (manager only)
- */
 export const useCreateTask = <
   TError = ErrorType<unknown>,
   TContext = unknown,
@@ -562,9 +517,74 @@ export const useCreateTask = <
   return useMutation(getCreateTaskMutationOptions(options));
 };
 
-/**
- * @summary Get a single task
- */
+export const getGetTaskSummaryUrl = () => {
+  return `/api/tasks/summary`;
+};
+
+export const getTaskSummary = async (
+  options?: RequestInit,
+): Promise<TaskSummary> => {
+  return customFetch<TaskSummary>(getGetTaskSummaryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTaskSummaryQueryKey = () => {
+  return [`/api/tasks/summary`] as const;
+};
+
+export const getGetTaskSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTaskSummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTaskSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTaskSummaryQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTaskSummary>>> = ({
+    signal,
+  }) => getTaskSummary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTaskSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTaskSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTaskSummary>>
+>;
+export type GetTaskSummaryQueryError = ErrorType<unknown>;
+
+export function useGetTaskSummary<
+  TData = Awaited<ReturnType<typeof getTaskSummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTaskSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTaskSummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
 export const getGetTaskUrl = (id: number) => {
   return `/api/tasks/${id}`;
 };
@@ -616,10 +636,6 @@ export type GetTaskQueryResult = NonNullable<
 >;
 export type GetTaskQueryError = ErrorType<ErrorResponse>;
 
-/**
- * @summary Get a single task
- */
-
 export function useGetTask<
   TData = Awaited<ReturnType<typeof getTask>>,
   TError = ErrorType<ErrorResponse>,
@@ -639,9 +655,6 @@ export function useGetTask<
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-/**
- * @summary Update a task
- */
 export const getUpdateTaskUrl = (id: number) => {
   return `/api/tasks/${id}`;
 };
@@ -703,9 +716,6 @@ export type UpdateTaskMutationResult = NonNullable<
 export type UpdateTaskMutationBody = BodyType<UpdateTaskBody>;
 export type UpdateTaskMutationError = ErrorType<ErrorResponse>;
 
-/**
- * @summary Update a task
- */
 export const useUpdateTask = <
   TError = ErrorType<ErrorResponse>,
   TContext = unknown,
@@ -726,9 +736,6 @@ export const useUpdateTask = <
   return useMutation(getUpdateTaskMutationOptions(options));
 };
 
-/**
- * @summary Delete a task (manager only)
- */
 export const getDeleteTaskUrl = (id: number) => {
   return `/api/tasks/${id}`;
 };
@@ -787,9 +794,6 @@ export type DeleteTaskMutationResult = NonNullable<
 
 export type DeleteTaskMutationError = ErrorType<unknown>;
 
-/**
- * @summary Delete a task (manager only)
- */
 export const useDeleteTask = <
   TError = ErrorType<unknown>,
   TContext = unknown,
@@ -810,9 +814,6 @@ export const useDeleteTask = <
   return useMutation(getDeleteTaskMutationOptions(options));
 };
 
-/**
- * @summary Add manager feedback to a task
- */
 export const getAddFeedbackUrl = (id: number) => {
   return `/api/tasks/${id}/feedback`;
 };
@@ -874,9 +875,6 @@ export type AddFeedbackMutationResult = NonNullable<
 export type AddFeedbackMutationBody = BodyType<FeedbackBody>;
 export type AddFeedbackMutationError = ErrorType<unknown>;
 
-/**
- * @summary Add manager feedback to a task
- */
 export const useAddFeedback = <
   TError = ErrorType<unknown>,
   TContext = unknown,
@@ -897,77 +895,83 @@ export const useAddFeedback = <
   return useMutation(getAddFeedbackMutationOptions(options));
 };
 
-/**
- * @summary Get task count summary grouped by status
- */
-export const getGetTaskSummaryUrl = () => {
-  return `/api/tasks/summary`;
+export const getUpdateMyProgressUrl = (id: number) => {
+  return `/api/tasks/${id}/my-progress`;
 };
 
-export const getTaskSummary = async (
+export const updateMyProgress = async (
+  id: number,
+  updateMyProgressBody: UpdateMyProgressBody,
   options?: RequestInit,
-): Promise<TaskSummary> => {
-  return customFetch<TaskSummary>(getGetTaskSummaryUrl(), {
+): Promise<TaskWithAssignees> => {
+  return customFetch<TaskWithAssignees>(getUpdateMyProgressUrl(id), {
     ...options,
-    method: "GET",
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateMyProgressBody),
   });
 };
 
-export const getGetTaskSummaryQueryKey = () => {
-  return [`/api/tasks/summary`] as const;
-};
-
-export const getGetTaskSummaryQueryOptions = <
-  TData = Awaited<ReturnType<typeof getTaskSummary>>,
+export const getUpdateMyProgressMutationOptions = <
   TError = ErrorType<unknown>,
+  TContext = unknown,
 >(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getTaskSummary>>,
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyProgress>>,
     TError,
-    TData
+    { id: number; data: BodyType<UpdateMyProgressBody> },
+    TContext
   >;
   request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyProgress>>,
+  TError,
+  { id: number; data: BodyType<UpdateMyProgressBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMyProgress"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-  const queryKey = queryOptions?.queryKey ?? getGetTaskSummaryQueryKey();
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyProgress>>,
+    { id: number; data: BodyType<UpdateMyProgressBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTaskSummary>>> = ({
-    signal,
-  }) => getTaskSummary({ signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getTaskSummary>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GetTaskSummaryQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getTaskSummary>>
->;
-export type GetTaskSummaryQueryError = ErrorType<unknown>;
-
-/**
- * @summary Get task count summary grouped by status
- */
-
-export function useGetTaskSummary<
-  TData = Awaited<ReturnType<typeof getTaskSummary>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getTaskSummary>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetTaskSummaryQueryOptions(options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
+    return updateMyProgress(id, data, requestOptions);
   };
 
-  return { ...query, queryKey: queryOptions.queryKey };
-}
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyProgressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyProgress>>
+>;
+export type UpdateMyProgressMutationBody = BodyType<UpdateMyProgressBody>;
+export type UpdateMyProgressMutationError = ErrorType<unknown>;
+
+export const useUpdateMyProgress = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyProgress>>,
+    TError,
+    { id: number; data: BodyType<UpdateMyProgressBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyProgress>>,
+  TError,
+  { id: number; data: BodyType<UpdateMyProgressBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMyProgressMutationOptions(options));
+};

@@ -5,6 +5,7 @@
  * Task Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { EmployeeProgress } from "./employeeProgress";
 import type { TaskWithAssigneesStatus } from "./taskWithAssigneesStatus";
 import type { User } from "./user";
 
@@ -25,4 +26,5 @@ export interface TaskWithAssignees {
   createdAt: string;
   updatedAt: string;
   assignees: User[];
+  employeeProgress: EmployeeProgress[];
 }

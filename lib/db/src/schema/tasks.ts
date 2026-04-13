@@ -22,7 +22,16 @@ export const taskAssigneesTable = pgTable("task_assignees", {
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
 });
 
+export const taskEmployeeProgressTable = pgTable("task_employee_progress", {
+  taskId: integer("task_id").notNull().references(() => tasksTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  completionPercent: integer("completion_percent").notNull().default(0),
+  expectedCompletionDate: text("expected_completion_date"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
 export const insertTaskSchema = createInsertSchema(tasksTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasksTable.$inferSelect;
 export type TaskAssignee = typeof taskAssigneesTable.$inferSelect;
+export type TaskEmployeeProgress = typeof taskEmployeeProgressTable.$inferSelect;

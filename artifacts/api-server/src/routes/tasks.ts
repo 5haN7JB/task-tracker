@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray, sql } from "drizzle-orm";
-import { db, tasksTable, taskAssigneesTable, usersTable } from "@workspace/db";
+import { eq, inArray, sql, and } from "drizzle-orm";
+import { db, tasksTable, taskAssigneesTable, usersTable, taskEmployeeProgressTable } from "@workspace/db";
 import {
   CreateTaskBody,
   UpdateTaskBody,
@@ -9,6 +9,8 @@ import {
   DeleteTaskParams,
   AddFeedbackParams,
   AddFeedbackBody,
+  UpdateMyProgressParams,
+  UpdateMyProgressBody,
 } from "@workspace/api-zod";
 import { requireAuth, requireManager } from "../lib/auth";
 
@@ -30,6 +32,18 @@ async function getTaskWithAssignees(taskId: number) {
     .innerJoin(usersTable, eq(taskAssigneesTable.userId, usersTable.id))
     .where(eq(taskAssigneesTable.taskId, taskId));
 
+  const progressRows = await db
+    .select({
+      userId: taskEmployeeProgressTable.userId,
+      userName: usersTable.name,
+      completionPercent: taskEmployeeProgressTable.completionPercent,
+      expectedCompletionDate: taskEmployeeProgressTable.expectedCompletionDate,
+      updatedAt: taskEmployeeProgressTable.updatedAt,
+    })
+    .from(taskEmployeeProgressTable)
+    .innerJoin(usersTable, eq(taskEmployeeProgressTable.userId, usersTable.id))
+    .where(eq(taskEmployeeProgressTable.taskId, taskId));
+
   return {
     ...task,
     deadline: task.deadline ?? null,
@@ -39,6 +53,13 @@ async function getTaskWithAssignees(taskId: number) {
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
     assignees: assigneeRows.map(u => ({ ...u, createdAt: u.createdAt.toISOString() })),
+    employeeProgress: progressRows.map(p => ({
+      userId: p.userId,
+      userName: p.userName,
+      completionPercent: p.completionPercent,
+      expectedCompletionDate: p.expectedCompletionDate ?? null,
+      updatedAt: p.updatedAt ? p.updatedAt.toISOString() : null,
+    })),
   };
 }
 
@@ -219,6 +240,66 @@ router.post("/tasks/:id/feedback", requireManager, async (req, res): Promise<voi
   await db.update(tasksTable).set({ feedback: parsed.data.feedback }).where(eq(tasksTable.id, params.data.id));
 
   const result = await getTaskWithAssignees(params.data.id);
+  res.json(result);
+});
+
+router.patch("/tasks/:id/my-progress", requireAuth, async (req, res): Promise<void> => {
+  const params = UpdateMyProgressParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid task ID" });
+    return;
+  }
+
+  const parsed = UpdateMyProgressBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const userId = req.session.userId!;
+  const taskId = params.data.id;
+
+  const [existing] = await db.select().from(tasksTable).where(eq(tasksTable.id, taskId));
+  if (!existing) {
+    res.status(404).json({ error: "Task not found" });
+    return;
+  }
+
+  // Upsert the employee's progress record
+  const existingProgress = await db
+    .select()
+    .from(taskEmployeeProgressTable)
+    .where(and(eq(taskEmployeeProgressTable.taskId, taskId), eq(taskEmployeeProgressTable.userId, userId)));
+
+  if (existingProgress.length > 0) {
+    await db
+      .update(taskEmployeeProgressTable)
+      .set({
+        completionPercent: parsed.data.completionPercent,
+        expectedCompletionDate: parsed.data.expectedCompletionDate ?? null,
+      })
+      .where(and(eq(taskEmployeeProgressTable.taskId, taskId), eq(taskEmployeeProgressTable.userId, userId)));
+  } else {
+    await db.insert(taskEmployeeProgressTable).values({
+      taskId,
+      userId,
+      completionPercent: parsed.data.completionPercent,
+      expectedCompletionDate: parsed.data.expectedCompletionDate ?? null,
+    });
+  }
+
+  // Also update the task-level completionPercent with the average
+  const allProgress = await db
+    .select({ pct: taskEmployeeProgressTable.completionPercent })
+    .from(taskEmployeeProgressTable)
+    .where(eq(taskEmployeeProgressTable.taskId, taskId));
+
+  if (allProgress.length > 0) {
+    const avg = Math.round(allProgress.reduce((s, p) => s + p.pct, 0) / allProgress.length);
+    await db.update(tasksTable).set({ completionPercent: avg }).where(eq(tasksTable.id, taskId));
+  }
+
+  const result = await getTaskWithAssignees(taskId);
   res.json(result);
 });
 

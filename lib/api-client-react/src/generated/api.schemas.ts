@@ -42,6 +42,16 @@ export interface AuthResponse {
   message: string;
 }
 
+export interface EmployeeProgress {
+  userId: number;
+  userName: string;
+  completionPercent: number;
+  /** @nullable */
+  expectedCompletionDate?: string | null;
+  /** @nullable */
+  updatedAt?: string | null;
+}
+
 export interface CreateTaskBody {
   title: string;
   description: string;
@@ -72,34 +82,14 @@ export interface UpdateTaskBody {
   assigneeIds?: number[];
 }
 
-export interface FeedbackBody {
-  feedback: string;
+export interface UpdateMyProgressBody {
+  completionPercent: number;
+  /** @nullable */
+  expectedCompletionDate?: string | null;
 }
 
-export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
-
-export const TaskStatus = {
-  todo: "todo",
-  in_progress: "in_progress",
-  done: "done",
-} as const;
-
-export interface Task {
-  id: number;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  /** @nullable */
-  deadline?: string | null;
-  /** @nullable */
-  completionPercent?: number | null;
-  /** @nullable */
-  expectedCompletionTime?: string | null;
-  /** @nullable */
-  feedback?: string | null;
-  createdById: number;
-  createdAt: string;
-  updatedAt: string;
+export interface FeedbackBody {
+  feedback: string;
 }
 
 export type TaskWithAssigneesStatus =
@@ -128,6 +118,7 @@ export interface TaskWithAssignees {
   createdAt: string;
   updatedAt: string;
   assignees: User[];
+  employeeProgress: EmployeeProgress[];
 }
 
 export interface TaskSummary {

@@ -1,6 +1,5 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
   description: Task Tracker API
@@ -9,19 +8,14 @@ servers:
     description: Base API path
 tags:
   - name: health
-    description: Health operations
   - name: auth
-    description: Authentication
   - name: users
-    description: User management
   - name: tasks
-    description: Task management
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
       responses:
         "200":
           description: Healthy
@@ -34,7 +28,6 @@ paths:
     post:
       operationId: login
       tags: [auth]
-      summary: Login with email and password
       requestBody:
         required: true
         content:
@@ -43,7 +36,7 @@ paths:
               $ref: "#/components/schemas/LoginBody"
       responses:
         "200":
-          description: Login successful
+          description: OK
           content:
             application/json:
               schema:
@@ -59,10 +52,9 @@ paths:
     post:
       operationId: logout
       tags: [auth]
-      summary: Logout
       responses:
         "200":
-          description: Logged out
+          description: OK
           content:
             application/json:
               schema:
@@ -72,10 +64,9 @@ paths:
     get:
       operationId: getMe
       tags: [auth]
-      summary: Get current user
       responses:
         "200":
-          description: Current user
+          description: OK
           content:
             application/json:
               schema:
@@ -91,10 +82,9 @@ paths:
     get:
       operationId: listUsers
       tags: [users]
-      summary: List all users (manager only)
       responses:
         "200":
-          description: List of users
+          description: OK
           content:
             application/json:
               schema:
@@ -106,10 +96,9 @@ paths:
     get:
       operationId: listTasks
       tags: [tasks]
-      summary: List tasks (managers see all, employees see assigned)
       responses:
         "200":
-          description: List of tasks
+          description: OK
           content:
             application/json:
               schema:
@@ -119,7 +108,6 @@ paths:
     post:
       operationId: createTask
       tags: [tasks]
-      summary: Create a task (manager only)
       requestBody:
         required: true
         content:
@@ -128,17 +116,28 @@ paths:
               $ref: "#/components/schemas/CreateTaskBody"
       responses:
         "201":
-          description: Created task
+          description: Created
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/TaskWithAssignees"
 
+  /tasks/summary:
+    get:
+      operationId: getTaskSummary
+      tags: [tasks]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskSummary"
+
   /tasks/{id}:
     get:
       operationId: getTask
       tags: [tasks]
-      summary: Get a single task
       parameters:
         - name: id
           in: path
@@ -147,7 +146,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Task
+          description: OK
           content:
             application/json:
               schema:
@@ -161,7 +160,6 @@ paths:
     patch:
       operationId: updateTask
       tags: [tasks]
-      summary: Update a task
       parameters:
         - name: id
           in: path
@@ -176,7 +174,7 @@ paths:
               $ref: "#/components/schemas/UpdateTaskBody"
       responses:
         "200":
-          description: Updated task
+          description: OK
           content:
             application/json:
               schema:
@@ -190,7 +188,6 @@ paths:
     delete:
       operationId: deleteTask
       tags: [tasks]
-      summary: Delete a task (manager only)
       parameters:
         - name: id
           in: path
@@ -205,7 +202,6 @@ paths:
     post:
       operationId: addFeedback
       tags: [tasks]
-      summary: Add manager feedback to a task
       parameters:
         - name: id
           in: path
@@ -220,24 +216,35 @@ paths:
               $ref: "#/components/schemas/FeedbackBody"
       responses:
         "200":
-          description: Updated task
+          description: OK
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/TaskWithAssignees"
 
-  /tasks/summary:
-    get:
-      operationId: getTaskSummary
+  /tasks/{id}/my-progress:
+    patch:
+      operationId: updateMyProgress
       tags: [tasks]
-      summary: Get task count summary grouped by status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMyProgressBody"
       responses:
         "200":
-          description: Task summary
+          description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TaskSummary"
+                $ref: "#/components/schemas/TaskWithAssignees"
 
 components:
   schemas:
@@ -246,24 +253,21 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-      required:
-        - error
+      required: [error]
 
     MessageResponse:
       type: object
       properties:
         message:
           type: string
-      required:
-        - message
+      required: [message]
 
     LoginBody:
       type: object
@@ -272,9 +276,7 @@ components:
           type: string
         password:
           type: string
-      required:
-        - email
-        - password
+      required: [email, password]
 
     AuthResponse:
       type: object
@@ -283,9 +285,7 @@ components:
           $ref: "#/components/schemas/User"
         message:
           type: string
-      required:
-        - user
-        - message
+      required: [user, message]
 
     User:
       type: object
@@ -301,12 +301,22 @@ components:
           enum: [manager, employee]
         createdAt:
           type: string
-      required:
-        - id
-        - email
-        - name
-        - role
-        - createdAt
+      required: [id, email, name, role, createdAt]
+
+    EmployeeProgress:
+      type: object
+      properties:
+        userId:
+          type: integer
+        userName:
+          type: string
+        completionPercent:
+          type: integer
+        expectedCompletionDate:
+          type: ["string", "null"]
+        updatedAt:
+          type: ["string", "null"]
+      required: [userId, userName, completionPercent]
 
     CreateTaskBody:
       type: object
@@ -321,9 +331,7 @@ components:
           type: array
           items:
             type: integer
-      required:
-        - title
-        - description
+      required: [title, description]
 
     UpdateTaskBody:
       type: object
@@ -346,48 +354,21 @@ components:
           items:
             type: integer
 
+    UpdateMyProgressBody:
+      type: object
+      properties:
+        completionPercent:
+          type: integer
+        expectedCompletionDate:
+          type: ["string", "null"]
+      required: [completionPercent]
+
     FeedbackBody:
       type: object
       properties:
         feedback:
           type: string
-      required:
-        - feedback
-
-    Task:
-      type: object
-      properties:
-        id:
-          type: integer
-        title:
-          type: string
-        description:
-          type: string
-        status:
-          type: string
-          enum: [todo, in_progress, done]
-        deadline:
-          type: ["string", "null"]
-        completionPercent:
-          type: ["integer", "null"]
-        expectedCompletionTime:
-          type: ["string", "null"]
-        feedback:
-          type: ["string", "null"]
-        createdById:
-          type: integer
-        createdAt:
-          type: string
-        updatedAt:
-          type: string
-      required:
-        - id
-        - title
-        - description
-        - status
-        - createdById
-        - createdAt
-        - updatedAt
+      required: [feedback]
 
     TaskWithAssignees:
       type: object
@@ -419,15 +400,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/User"
-      required:
-        - id
-        - title
-        - description
-        - status
-        - createdById
-        - createdAt
-        - updatedAt
-        - assignees
+        employeeProgress:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeProgress"
+      required: [id, title, description, status, createdById, createdAt, updatedAt, assignees, employeeProgress]
 
     TaskSummary:
       type: object
@@ -440,8 +417,4 @@ components:
           type: integer
         total:
           type: integer
-      required:
-        - todo
-        - in_progress
-        - done
-        - total
+      required: [todo, in_progress, done, total]

@@ -7,16 +7,10 @@
  */
 import * as zod from "zod";
 
-/**
- * @summary Health check
- */
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
 
-/**
- * @summary Login with email and password
- */
 export const LoginBody = zod.object({
   email: zod.string(),
   password: zod.string(),
@@ -33,16 +27,10 @@ export const LoginResponse = zod.object({
   message: zod.string(),
 });
 
-/**
- * @summary Logout
- */
 export const LogoutResponse = zod.object({
   message: zod.string(),
 });
 
-/**
- * @summary Get current user
- */
 export const GetMeResponse = zod.object({
   id: zod.number(),
   email: zod.string(),
@@ -51,9 +39,6 @@ export const GetMeResponse = zod.object({
   createdAt: zod.string(),
 });
 
-/**
- * @summary List all users (manager only)
- */
 export const ListUsersResponseItem = zod.object({
   id: zod.number(),
   email: zod.string(),
@@ -63,9 +48,6 @@ export const ListUsersResponseItem = zod.object({
 });
 export const ListUsersResponse = zod.array(ListUsersResponseItem);
 
-/**
- * @summary List tasks (managers see all, employees see assigned)
- */
 export const ListTasksResponseItem = zod.object({
   id: zod.number(),
   title: zod.string(),
@@ -87,12 +69,18 @@ export const ListTasksResponseItem = zod.object({
       createdAt: zod.string(),
     }),
   ),
+  employeeProgress: zod.array(
+    zod.object({
+      userId: zod.number(),
+      userName: zod.string(),
+      completionPercent: zod.number(),
+      expectedCompletionDate: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
 });
 export const ListTasksResponse = zod.array(ListTasksResponseItem);
 
-/**
- * @summary Create a task (manager only)
- */
 export const CreateTaskBody = zod.object({
   title: zod.string(),
   description: zod.string(),
@@ -100,9 +88,13 @@ export const CreateTaskBody = zod.object({
   assigneeIds: zod.array(zod.number()).optional(),
 });
 
-/**
- * @summary Get a single task
- */
+export const GetTaskSummaryResponse = zod.object({
+  todo: zod.number(),
+  in_progress: zod.number(),
+  done: zod.number(),
+  total: zod.number(),
+});
+
 export const GetTaskParams = zod.object({
   id: zod.coerce.number(),
 });
@@ -128,11 +120,17 @@ export const GetTaskResponse = zod.object({
       createdAt: zod.string(),
     }),
   ),
+  employeeProgress: zod.array(
+    zod.object({
+      userId: zod.number(),
+      userName: zod.string(),
+      completionPercent: zod.number(),
+      expectedCompletionDate: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
 });
 
-/**
- * @summary Update a task
- */
 export const UpdateTaskParams = zod.object({
   id: zod.coerce.number(),
 });
@@ -168,18 +166,21 @@ export const UpdateTaskResponse = zod.object({
       createdAt: zod.string(),
     }),
   ),
+  employeeProgress: zod.array(
+    zod.object({
+      userId: zod.number(),
+      userName: zod.string(),
+      completionPercent: zod.number(),
+      expectedCompletionDate: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
 });
 
-/**
- * @summary Delete a task (manager only)
- */
 export const DeleteTaskParams = zod.object({
   id: zod.coerce.number(),
 });
 
-/**
- * @summary Add manager feedback to a task
- */
 export const AddFeedbackParams = zod.object({
   id: zod.coerce.number(),
 });
@@ -209,14 +210,54 @@ export const AddFeedbackResponse = zod.object({
       createdAt: zod.string(),
     }),
   ),
+  employeeProgress: zod.array(
+    zod.object({
+      userId: zod.number(),
+      userName: zod.string(),
+      completionPercent: zod.number(),
+      expectedCompletionDate: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
 });
 
-/**
- * @summary Get task count summary grouped by status
- */
-export const GetTaskSummaryResponse = zod.object({
-  todo: zod.number(),
-  in_progress: zod.number(),
-  done: zod.number(),
-  total: zod.number(),
+export const UpdateMyProgressParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateMyProgressBody = zod.object({
+  completionPercent: zod.number(),
+  expectedCompletionDate: zod.string().nullish(),
+});
+
+export const UpdateMyProgressResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["todo", "in_progress", "done"]),
+  deadline: zod.string().nullish(),
+  completionPercent: zod.number().nullish(),
+  expectedCompletionTime: zod.string().nullish(),
+  feedback: zod.string().nullish(),
+  createdById: zod.number(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+  assignees: zod.array(
+    zod.object({
+      id: zod.number(),
+      email: zod.string(),
+      name: zod.string(),
+      role: zod.enum(["manager", "employee"]),
+      createdAt: zod.string(),
+    }),
+  ),
+  employeeProgress: zod.array(
+    zod.object({
+      userId: zod.number(),
+      userName: zod.string(),
+      completionPercent: zod.number(),
+      expectedCompletionDate: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
 });
