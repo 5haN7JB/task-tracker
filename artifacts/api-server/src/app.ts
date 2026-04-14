@@ -4,6 +4,7 @@ import session from "express-session";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import passport from "./lib/passport";
 
 const app: Express = express();
 
@@ -46,6 +47,10 @@ app.use(
     },
   })
 );
+
+// Passport must come AFTER session middleware
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use("/api", router);
 

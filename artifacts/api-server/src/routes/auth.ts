@@ -3,8 +3,13 @@ import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { LoginBody } from "@workspace/api-zod";
 import { hashPassword, requireAuth } from "../lib/auth";
+import passport from "../lib/passport";
+import type { User } from "@workspace/db";
 
 const router: IRouter = Router();
+
+const FRONTEND_URL =
+  process.env.FRONTEND_URL || "https://task-tracker-task-tracker.vercel.app";
 
 router.post("/auth/login", async (req, res): Promise<void> => {
   const parsed = LoginBody.safeParse(req.body);
@@ -66,5 +71,31 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
     createdAt: user.createdAt.toISOString(),
   });
 });
+
+// ── Google OAuth ──────────────────────────────────────────────────────────────
+
+// Step 1: redirect the browser to Google's consent screen
+router.get(
+  "/auth/google",
+  passport.authenticate("google", { scope: ["email", "profile"] })
+);
+
+// Step 2: Google redirects back here after the user grants / denies consent
+router.get(
+  "/auth/google/callback",
+  passport.authenticate("google", {
+    failureRedirect: `${FRONTEND_URL}/login?error=google_auth_failed`,
+    session: true,
+  }),
+  (req, res): void => {
+    const user = req.user as User;
+
+    // Mirror into our own express-session vars so requireAuth works as normal
+    req.session.userId = user.id;
+    req.session.role   = user.role;
+
+    res.redirect(FRONTEND_URL);
+  }
+);
 
 export default router;
