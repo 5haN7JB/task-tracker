@@ -64,6 +64,14 @@ RUN pnpm install --no-frozen-lockfile --prod
 # Copy compiled server bundle from builder
 COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
 
+# Copy DB seed script
+COPY lib/db/scripts/setup-local-sqlite.mjs ./lib/db/scripts/
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
+
+# Ensure /data directory exists (Railway volume will mount here)
+RUN mkdir -p /data
+
 EXPOSE 3000
 
-CMD ["node", "artifacts/api-server/dist/index.mjs"]
+CMD ["./docker-entrypoint.sh"]
