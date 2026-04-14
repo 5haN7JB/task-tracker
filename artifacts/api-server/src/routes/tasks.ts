@@ -81,7 +81,7 @@ router.get("/tasks/summary", requireAuth, async (req, res): Promise<void> => {
   }
 
   const rows = await db
-    .select({ status: tasksTable.status, count: sql<number>`count(*)::int` })
+    .select({ status: tasksTable.status, count: sql<number>`count(*)` })
     .from(tasksTable)
     .where(whereClause)
     .groupBy(tasksTable.status);

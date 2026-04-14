@@ -1,10 +1,10 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 
-export const tasksTable = pgTable("tasks", {
-  id: serial("id").primaryKey(),
+export const tasksTable = sqliteTable("tasks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
   description: text("description").notNull(),
   status: text("status", { enum: ["todo", "in_progress", "done"] }).notNull().default("todo"),
@@ -13,21 +13,29 @@ export const tasksTable = pgTable("tasks", {
   expectedCompletionTime: text("expected_completion_time"),
   feedback: text("feedback"),
   createdById: integer("created_by_id").notNull().references(() => usersTable.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
 });
 
-export const taskAssigneesTable = pgTable("task_assignees", {
+export const taskAssigneesTable = sqliteTable("task_assignees", {
   taskId: integer("task_id").notNull().references(() => tasksTable.id, { onDelete: "cascade" }),
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
 });
 
-export const taskEmployeeProgressTable = pgTable("task_employee_progress", {
+export const taskEmployeeProgressTable = sqliteTable("task_employee_progress", {
   taskId: integer("task_id").notNull().references(() => tasksTable.id, { onDelete: "cascade" }),
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   completionPercent: integer("completion_percent").notNull().default(0),
   expectedCompletionDate: text("expected_completion_date"),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
 });
 
 export const insertTaskSchema = createInsertSchema(tasksTable).omit({ id: true, createdAt: true, updatedAt: true });
