@@ -17,47 +17,55 @@ passport.deserializeUser((id: number, done) => {
   done(null, { id } as Express.User);
 });
 
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      callbackURL: CALLBACK_URL,
-    },
-    async (_accessToken, _refreshToken, profile, done) => {
-      try {
-        const email = profile.emails?.[0]?.value?.toLowerCase();
-        if (!email) {
-          return done(new Error("Google account has no email address"));
+// Only register the Google strategy when credentials are provided.
+// If GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are missing the server still
+// starts normally; the /auth/google routes will return 503 instead of crashing.
+export const googleOAuthEnabled =
+  !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+
+if (googleOAuthEnabled) {
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        callbackURL: CALLBACK_URL,
+      },
+      async (_accessToken, _refreshToken, profile, done) => {
+        try {
+          const email = profile.emails?.[0]?.value?.toLowerCase();
+          if (!email) {
+            return done(new Error("Google account has no email address"));
+          }
+
+          // Find existing user
+          const [existing] = await db
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.email, email));
+
+          if (existing) {
+            return done(null, existing);
+          }
+
+          // First-time Google sign-in: create user with employee role
+          const [created] = await db
+            .insert(usersTable)
+            .values({
+              email,
+              name: profile.displayName || email.split("@")[0],
+              passwordHash: "", // no password for OAuth-only users
+              role: "employee",
+            })
+            .returning();
+
+          return done(null, created);
+        } catch (err) {
+          return done(err as Error);
         }
-
-        // Find existing user
-        const [existing] = await db
-          .select()
-          .from(usersTable)
-          .where(eq(usersTable.email, email));
-
-        if (existing) {
-          return done(null, existing);
-        }
-
-        // First-time Google sign-in: create user with employee role
-        const [created] = await db
-          .insert(usersTable)
-          .values({
-            email,
-            name: profile.displayName || email.split("@")[0],
-            passwordHash: "", // no password for OAuth-only users
-            role: "employee",
-          })
-          .returning();
-
-        return done(null, created);
-      } catch (err) {
-        return done(err as Error);
       }
-    }
-  )
-);
+    )
+  );
+}
 
 export default passport;

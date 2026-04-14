@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { LoginBody } from "@workspace/api-zod";
 import { hashPassword, requireAuth } from "../lib/auth";
-import passport from "../lib/passport";
+import passport, { googleOAuthEnabled } from "../lib/passport";
 import type { User } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -75,27 +75,31 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
 // ── Google OAuth ──────────────────────────────────────────────────────────────
 
 // Step 1: redirect the browser to Google's consent screen
-router.get(
-  "/auth/google",
-  passport.authenticate("google", { scope: ["email", "profile"] })
-);
+router.get("/auth/google", (req, res, next): void => {
+  if (!googleOAuthEnabled) {
+    res.status(503).json({ error: "Google OAuth is not configured on this server." });
+    return;
+  }
+  passport.authenticate("google", { scope: ["email", "profile"] })(req, res, next);
+});
 
 // Step 2: Google redirects back here after the user grants / denies consent
-router.get(
-  "/auth/google/callback",
+router.get("/auth/google/callback", (req, res, next): void => {
+  if (!googleOAuthEnabled) {
+    res.redirect(`${FRONTEND_URL}/login?error=google_oauth_not_configured`);
+    return;
+  }
   passport.authenticate("google", {
     failureRedirect: `${FRONTEND_URL}/login?error=google_auth_failed`,
     session: true,
-  }),
-  (req, res): void => {
+  })(req, res, (err) => {
+    if (err) return next(err);
     const user = req.user as User;
-
     // Mirror into our own express-session vars so requireAuth works as normal
     req.session.userId = user.id;
     req.session.role   = user.role;
-
     res.redirect(FRONTEND_URL);
-  }
-);
+  });
+});
 
 export default router;
