@@ -1,3 +1,6 @@
+[nixPkgs]
+pkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
+
 [phases.install]
 cmds = [
   "npm install -g corepack@latest",
