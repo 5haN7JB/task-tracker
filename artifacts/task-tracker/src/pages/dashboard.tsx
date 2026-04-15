@@ -1,14 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import {
-  useListTasks,
-  useGetTaskSummary,
-  useListUsers,
-  getListTasksQueryKey,
-  getGetTaskSummaryQueryKey,
-  useDeleteTask,
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useListTasks, useListUsers, useDeleteTask } from "@/lib/queries";
 import { useAuth } from "@/context/AuthContext";
 import Layout from "@/components/Layout";
 import StatusBadge from "@/components/StatusBadge";
@@ -19,12 +11,21 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [filter, setFilter] = useState<FilterType>("all");
-  const queryClient = useQueryClient();
 
   const { data: tasks, isLoading: tasksLoading } = useListTasks();
-  const { data: summary } = useGetTaskSummary();
   const { data: users } = useListUsers();
   const deleteMutation = useDeleteTask();
+
+  // Compute summary from tasks list (no extra round-trip needed)
+  const summary = useMemo(() => {
+    if (!tasks) return null;
+    return {
+      total: tasks.length,
+      todo: tasks.filter((t) => t.status === "todo").length,
+      in_progress: tasks.filter((t) => t.status === "in_progress").length,
+      done: tasks.filter((t) => t.status === "done").length,
+    };
+  }, [tasks]);
 
   const filteredTasks = (tasks ?? []).filter((task) => {
     if (filter === "pending") return task.status !== "done";
@@ -32,34 +33,26 @@ export default function DashboardPage() {
     return true;
   });
 
-  // Compute per-employee task counts for manager view
-  const employeeSummary = (() => {
+  // Per-employee task counts for manager view
+  const employeeSummary = useMemo(() => {
     if (user?.role !== "manager") return [];
-    const employees = (users ?? []).filter(u => u.role === "employee");
+    const employees = (users ?? []).filter((u) => u.role === "employee");
     return employees
-      .map(emp => {
-        const assigned = (tasks ?? []).filter(t =>
-          t.assignees?.some(a => a.id === emp.id)
+      .map((emp) => {
+        const assigned = (tasks ?? []).filter((t) =>
+          t.assignees?.some((a) => a.id === emp.id)
         );
-        const pending = assigned.filter(t => t.status !== "done").length;
-        const done = assigned.filter(t => t.status === "done").length;
+        const pending = assigned.filter((t) => t.status !== "done").length;
+        const done = assigned.filter((t) => t.status === "done").length;
         return { ...emp, total: assigned.length, pending, done };
       })
       .sort((a, b) => b.pending - a.pending);
-  })();
+  }, [user?.role, users, tasks]);
 
-  const handleDelete = (id: number, e: React.MouseEvent) => {
+  const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Delete this task?")) return;
-    deleteMutation.mutate(
-      { id },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetTaskSummaryQueryKey() });
-        },
-      }
-    );
+    deleteMutation.mutate(id);
   };
 
   return (
@@ -72,7 +65,11 @@ export default function DashboardPage() {
               {user?.role === "manager" ? "All Tasks" : "My Tasks"}
             </h2>
             <p className="text-[hsl(213,20%,50%)] text-sm mt-0.5">
-              {filter === "pending" ? "Showing pending tasks" : filter === "done" ? "Showing completed tasks" : "Showing all tasks"}
+              {filter === "pending"
+                ? "Showing pending tasks"
+                : filter === "done"
+                ? "Showing completed tasks"
+                : "Showing all tasks"}
             </p>
           </div>
           {user?.role === "manager" && (
@@ -161,9 +158,15 @@ export default function DashboardPage() {
             ) : (
               <div className="divide-y divide-[hsl(214,32%,94%)]">
                 {filteredTasks.map((task) => {
-                  const avgProgress = task.employeeProgress && task.employeeProgress.length > 0
-                    ? Math.round(task.employeeProgress.reduce((s, p) => s + p.completionPercent, 0) / task.employeeProgress.length)
-                    : task.completionPercent ?? null;
+                  const avgProgress =
+                    task.employeeProgress && task.employeeProgress.length > 0
+                      ? Math.round(
+                          task.employeeProgress.reduce(
+                            (s, p) => s + p.completionPercent,
+                            0
+                          ) / task.employeeProgress.length
+                        )
+                      : task.completionPercent ?? null;
                   return (
                     <div
                       key={task.id}
@@ -174,7 +177,7 @@ export default function DashboardPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-medium text-[hsl(213,31%,18%)] text-sm truncate">{task.title}</p>
-                            <StatusBadge status={task.status as "todo" | "in_progress" | "done"} />
+                            <StatusBadge status={task.status} />
                           </div>
                           <p className="text-xs text-[hsl(213,20%,55%)] truncate mb-2">{task.description}</p>
 
@@ -199,7 +202,7 @@ export default function DashboardPage() {
                             )}
                             {task.assignees && task.assignees.length > 0 && (
                               <span className="text-[10px] text-[hsl(213,20%,58%)]">
-                                {task.assignees.map(a => a.name).join(", ")}
+                                {task.assignees.map((a) => a.name).join(", ")}
                               </span>
                             )}
                           </div>
@@ -253,13 +256,15 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center gap-1.5">
                           {emp.pending > 0 && (
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                              emp.pending >= 3
-                                ? "bg-red-50 text-red-600"
-                                : emp.pending >= 2
-                                ? "bg-orange-50 text-orange-600"
-                                : "bg-[hsl(207,89%,94%)] text-[hsl(207,89%,38%)]"
-                            }`}>
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                                emp.pending >= 3
+                                  ? "bg-red-50 text-red-600"
+                                  : emp.pending >= 2
+                                  ? "bg-orange-50 text-orange-600"
+                                  : "bg-[hsl(207,89%,94%)] text-[hsl(207,89%,38%)]"
+                              }`}
+                            >
                               {emp.pending} pending
                             </span>
                           )}
@@ -273,9 +278,18 @@ export default function DashboardPage() {
                       <div className="h-1.5 bg-[hsl(210,40%,93%)] rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${
-                            emp.pending >= 3 ? "bg-red-400" : emp.pending >= 2 ? "bg-orange-400" : "bg-[hsl(207,89%,55%)]"
+                            emp.pending >= 3
+                              ? "bg-red-400"
+                              : emp.pending >= 2
+                              ? "bg-orange-400"
+                              : "bg-[hsl(207,89%,55%)]"
                           }`}
-                          style={{ width: emp.total > 0 ? `${(emp.pending / Math.max(...employeeSummary.map(e => e.total), 1)) * 100}%` : "0%" }}
+                          style={{
+                            width:
+                              emp.total > 0
+                                ? `${(emp.pending / Math.max(...employeeSummary.map((e) => e.total), 1)) * 100}%`
+                                : "0%",
+                          }}
                         />
                       </div>
                     </div>

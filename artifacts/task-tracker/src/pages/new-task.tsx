@@ -1,25 +1,23 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useCreateTask, useListUsers, getListTasksQueryKey, getGetTaskSummaryQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCreateTask, useListUsers } from "@/lib/queries";
 import Layout from "@/components/Layout";
 
 export default function NewTaskPage() {
   const [, setLocation] = useLocation();
-  const queryClient = useQueryClient();
   const { data: users } = useListUsers();
   const createTask = useCreateTask();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [selectedAssignees, setSelectedAssignees] = useState<number[]>([]);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
 
   const employees = (users ?? []).filter((u) => u.role === "employee");
 
-  const toggleAssignee = (id: number) => {
+  const toggleAssignee = (id: string) => {
     setSelectedAssignees((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
@@ -44,22 +42,18 @@ export default function NewTaskPage() {
 
     createTask.mutate(
       {
-        data: {
-          title: title.trim(),
-          description: description.trim(),
-          deadline: deadline || null,
-          assigneeIds: selectedAssignees,
-        },
+        title: title.trim(),
+        description: description.trim(),
+        deadline: deadline || null,
+        assigneeIds: selectedAssignees,
       },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetTaskSummaryQueryKey() });
           setLocation("/dashboard");
         },
         onError: (err: unknown) => {
-          const apiErr = err as { data?: { error?: string } };
-          setServerError(apiErr?.data?.error || "Failed to create task. Please try again.");
+          const e = err as { message?: string };
+          setServerError(e?.message || "Failed to create task. Please try again.");
         },
       }
     );
@@ -100,7 +94,10 @@ export default function NewTaskPage() {
               <input
                 type="text"
                 value={title}
-                onChange={(e) => { setTitle(e.target.value); if (errors.title) setErrors(p => ({ ...p, title: "" })); }}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  if (errors.title) setErrors((p) => ({ ...p, title: "" }));
+                }}
                 placeholder="e.g. Prepare Q2 portfolio report"
                 className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(207,89%,45%)] focus:border-transparent transition-all ${errors.title ? "border-red-300 bg-red-50" : "border-[hsl(214,32%,88%)]"}`}
               />
@@ -109,9 +106,7 @@ export default function NewTaskPage() {
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-[hsl(213,31%,18%)] mb-1.5">
-                Description
-              </label>
+              <label className="block text-sm font-medium text-[hsl(213,31%,18%)] mb-1.5">Description</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -129,7 +124,10 @@ export default function NewTaskPage() {
               <input
                 type="date"
                 value={deadline}
-                onChange={(e) => { setDeadline(e.target.value); if (errors.deadline) setErrors(p => ({ ...p, deadline: "" })); }}
+                onChange={(e) => {
+                  setDeadline(e.target.value);
+                  if (errors.deadline) setErrors((p) => ({ ...p, deadline: "" }));
+                }}
                 className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(207,89%,45%)] focus:border-transparent transition-all ${errors.deadline ? "border-red-300 bg-red-50" : "border-[hsl(214,32%,88%)]"}`}
               />
               {errors.deadline && <p className="mt-1 text-xs text-red-600">{errors.deadline}</p>}

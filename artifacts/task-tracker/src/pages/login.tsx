@@ -1,36 +1,39 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useLogin } from "@workspace/api-client-react";
-import { useAuth } from "@/context/AuthContext";
-import { setBaseUrl } from "@workspace/api-client-react";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
-  const { refetchUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const loginMutation = useLogin();
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    loginMutation.mutate(
-      { data: { email, password } },
-      {
-        onSuccess: () => {
-          refetchUser();
-          setLocation("/dashboard");
-        },
-        onError: (err: unknown) => {
-          const apiErr = err as { data?: { error?: string } };
-          setError(apiErr?.data?.error || "Invalid email or password");
-        },
-      }
-    );
+    setLoading(true);
+    const { error: authErr } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    setLoading(false);
+    if (authErr) {
+      setError(authErr.message || "Invalid email or password");
+    } else {
+      setLocation("/dashboard");
+    }
+  };
+
+  const handleGoogle = async () => {
+    setError("");
+    const { error: authErr } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+      },
+    });
+    if (authErr) setError(authErr.message);
   };
 
   const fillDemo = (demoEmail: string) => {
@@ -83,10 +86,10 @@ export default function LoginPage() {
             </div>
             <button
               type="submit"
-              disabled={loginMutation.isPending}
+              disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loginMutation.isPending ? "Signing in..." : "Sign In"}
+              {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
 
@@ -97,8 +100,8 @@ export default function LoginPage() {
               <span className="mx-3 text-xs text-gray-400 uppercase tracking-wide whitespace-nowrap">or</span>
               <div className="flex-grow border-t border-gray-200" />
             </div>
-            <a
-              href={`${API_BASE}/api/auth/google`}
+            <button
+              onClick={handleGoogle}
               className="mt-4 w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
             >
               {/* Google "G" logo */}
@@ -109,7 +112,7 @@ export default function LoginPage() {
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
               Sign in with Google
-            </a>
+            </button>
           </div>
 
           <div className="mt-6 pt-6 border-t border-gray-100">
@@ -122,7 +125,7 @@ export default function LoginPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-900">manager@example.com</p>
-                    <p className="text-xs text-gray-500">Role: Manager — can create & assign tasks</p>
+                    <p className="text-xs text-gray-500">Role: Manager — can create &amp; assign tasks</p>
                   </div>
                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Manager</span>
                 </div>

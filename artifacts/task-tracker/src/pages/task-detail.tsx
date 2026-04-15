@@ -5,26 +5,18 @@ import {
   useUpdateTask,
   useAddFeedback,
   useUpdateMyProgress,
-  getListTasksQueryKey,
-  getGetTaskSummaryQueryKey,
-  getGetTaskQueryKey,
   useListUsers,
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+} from "@/lib/queries";
 import { useAuth } from "@/context/AuthContext";
 import Layout from "@/components/Layout";
 import StatusBadge from "@/components/StatusBadge";
 
 export default function TaskDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const taskId = parseInt(id ?? "0", 10);
+  const { id: taskId } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const queryClient = useQueryClient();
 
-  const { data: task, isLoading } = useGetTask(taskId, {
-    query: { enabled: !!taskId, queryKey: getGetTaskQueryKey(taskId) },
-  });
+  const { data: task, isLoading } = useGetTask(taskId ?? "");
   const { data: users } = useListUsers();
   const updateTask = useUpdateTask();
   const addFeedback = useAddFeedback();
@@ -34,62 +26,47 @@ export default function TaskDetailPage() {
   const [feedbackSaving, setFeedbackSaving] = useState(false);
 
   // My progress (employee)
-  const myProgress = task?.employeeProgress?.find(p => p.userId === user?.id);
-  const [myPercent, setMyPercent] = useState<number | "">(myProgress?.completionPercent ?? "");
-  const [myExpectedDate, setMyExpectedDate] = useState<string>(myProgress?.expectedCompletionDate ?? "");
+  const myProgress = task?.employeeProgress?.find((p) => p.userId === user?.id);
+  const [myPercent, setMyPercent] = useState<number | "">(
+    myProgress?.completionPercent ?? ""
+  );
+  const [myExpectedDate, setMyExpectedDate] = useState<string>(
+    myProgress?.expectedCompletionDate ?? ""
+  );
   const [savingProgress, setSavingProgress] = useState(false);
 
   const employees = (users ?? []).filter((u) => u.role === "employee");
-  const [selectedAssignees, setSelectedAssignees] = useState<number[]>([]);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [editingAssignees, setEditingAssignees] = useState(false);
 
   const handleStatusChange = (status: "todo" | "in_progress" | "done") => {
-    updateTask.mutate(
-      { id: taskId, data: { status } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetTaskQueryKey(taskId) });
-          queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetTaskSummaryQueryKey() });
-        },
-      }
-    );
+    if (!taskId) return;
+    updateTask.mutate({ taskId, status });
   };
 
   const handleSaveMyProgress = () => {
-    if (myPercent === "") return;
+    if (myPercent === "" || !taskId) return;
     setSavingProgress(true);
     updateMyProgress.mutate(
       {
-        id: taskId,
-        data: {
-          completionPercent: Number(myPercent),
-          expectedCompletionDate: myExpectedDate || null,
-        },
+        taskId,
+        completionPercent: Number(myPercent),
+        expectedCompletionDate: myExpectedDate || null,
       },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetTaskQueryKey(taskId) });
-          queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
-          setSavingProgress(false);
-        },
-        onError: () => setSavingProgress(false),
+        onSettled: () => setSavingProgress(false),
       }
     );
   };
 
   const handleFeedback = () => {
-    if (!feedbackText.trim()) return;
+    if (!feedbackText.trim() || !taskId) return;
     setFeedbackSaving(true);
     addFeedback.mutate(
-      { id: taskId, data: { feedback: feedbackText } },
+      { taskId, feedback: feedbackText },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetTaskQueryKey(taskId) });
-          setFeedbackText("");
-          setFeedbackSaving(false);
-        },
-        onError: () => setFeedbackSaving(false),
+        onSuccess: () => setFeedbackText(""),
+        onSettled: () => setFeedbackSaving(false),
       }
     );
   };
@@ -100,18 +77,14 @@ export default function TaskDetailPage() {
   };
 
   const handleSaveAssignees = () => {
+    if (!taskId) return;
     updateTask.mutate(
-      { id: taskId, data: { assigneeIds: selectedAssignees } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetTaskQueryKey(taskId) });
-          setEditingAssignees(false);
-        },
-      }
+      { taskId, assigneeIds: selectedAssignees },
+      { onSuccess: () => setEditingAssignees(false) }
     );
   };
 
-  const toggleAssignee = (uid: number) => {
+  const toggleAssignee = (uid: string) => {
     setSelectedAssignees((prev) =>
       prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]
     );
@@ -130,16 +103,25 @@ export default function TaskDetailPage() {
       <Layout>
         <div className="p-8 text-center">
           <p className="text-[hsl(213,20%,55%)] text-sm">Task not found</p>
-          <button onClick={() => setLocation("/dashboard")} className="mt-3 text-[hsl(207,89%,45%)] text-sm">Back to dashboard</button>
+          <button
+            onClick={() => setLocation("/dashboard")}
+            className="mt-3 text-[hsl(207,89%,45%)] text-sm"
+          >
+            Back to dashboard
+          </button>
         </div>
       </Layout>
     );
   }
 
-  // Compute average progress across all employees
-  const avgProgress = task.employeeProgress && task.employeeProgress.length > 0
-    ? Math.round(task.employeeProgress.reduce((s, p) => s + p.completionPercent, 0) / task.employeeProgress.length)
-    : task.completionPercent ?? null;
+  // Average progress across all employees
+  const avgProgress =
+    task.employeeProgress && task.employeeProgress.length > 0
+      ? Math.round(
+          task.employeeProgress.reduce((s, p) => s + p.completionPercent, 0) /
+            task.employeeProgress.length
+        )
+      : task.completionPercent ?? null;
 
   return (
     <Layout>
@@ -157,7 +139,7 @@ export default function TaskDetailPage() {
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap mb-1">
               <h2 className="text-xl font-bold text-[hsl(213,31%,18%)]">{task.title}</h2>
-              <StatusBadge status={task.status as "todo" | "in_progress" | "done"} />
+              <StatusBadge status={task.status} />
             </div>
             <p className="text-[hsl(213,20%,55%)] text-sm">
               Created {new Date(task.createdAt).toLocaleDateString()}
@@ -201,7 +183,7 @@ export default function TaskDetailPage() {
               </div>
               <div>
                 <p className="text-[10px] text-[hsl(213,20%,60%)] mb-0.5 uppercase tracking-wide">Status</p>
-                <StatusBadge status={task.status as "todo" | "in_progress" | "done"} />
+                <StatusBadge status={task.status} />
               </div>
             </div>
           </div>
@@ -224,7 +206,14 @@ export default function TaskDetailPage() {
               <div>
                 <div className="space-y-2 mb-3">
                   {employees.map((emp) => (
-                    <label key={emp.id} className={`flex items-center gap-3 p-2.5 border rounded-lg cursor-pointer transition-all ${selectedAssignees.includes(emp.id) ? "border-[hsl(207,89%,65%)] bg-[hsl(207,89%,97%)]" : "border-[hsl(214,32%,88%)] hover:bg-[hsl(210,40%,98%)]"}`}>
+                    <label
+                      key={emp.id}
+                      className={`flex items-center gap-3 p-2.5 border rounded-lg cursor-pointer transition-all ${
+                        selectedAssignees.includes(emp.id)
+                          ? "border-[hsl(207,89%,65%)] bg-[hsl(207,89%,97%)]"
+                          : "border-[hsl(214,32%,88%)] hover:bg-[hsl(210,40%,98%)]"
+                      }`}
+                    >
                       <input
                         type="checkbox"
                         checked={selectedAssignees.includes(emp.id)}
@@ -239,8 +228,18 @@ export default function TaskDetailPage() {
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setEditingAssignees(false)} className="text-sm text-[hsl(213,20%,50%)] hover:text-[hsl(213,31%,18%)] px-3 py-1.5 border border-[hsl(214,32%,85%)] rounded-lg transition-colors">Cancel</button>
-                  <button onClick={handleSaveAssignees} className="text-sm text-white bg-[hsl(207,89%,45%)] hover:bg-[hsl(207,89%,40%)] px-3 py-1.5 rounded-lg transition-colors">Save</button>
+                  <button
+                    onClick={() => setEditingAssignees(false)}
+                    className="text-sm text-[hsl(213,20%,50%)] hover:text-[hsl(213,31%,18%)] px-3 py-1.5 border border-[hsl(214,32%,85%)] rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveAssignees}
+                    className="text-sm text-white bg-[hsl(207,89%,45%)] hover:bg-[hsl(207,89%,40%)] px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Save
+                  </button>
                 </div>
               </div>
             ) : task.assignees && task.assignees.length > 0 ? (
@@ -262,7 +261,7 @@ export default function TaskDetailPage() {
             )}
           </div>
 
-          {/* Per-Employee Progress (visible to all) */}
+          {/* Per-Employee Progress */}
           {task.employeeProgress && task.employeeProgress.length > 0 && (
             <div className="bg-white border border-[hsl(214,32%,88%)] rounded-xl p-5 shadow-sm">
               <h3 className="text-xs font-semibold text-[hsl(213,20%,50%)] uppercase tracking-wide mb-4">Employee Progress</h3>
@@ -278,7 +277,9 @@ export default function TaskDetailPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {ep.expectedCompletionDate && (
-                          <span className="text-[10px] text-[hsl(213,20%,55%)]">by {new Date(ep.expectedCompletionDate).toLocaleDateString()}</span>
+                          <span className="text-[10px] text-[hsl(213,20%,55%)]">
+                            by {new Date(ep.expectedCompletionDate).toLocaleDateString()}
+                          </span>
                         )}
                         <span className="text-sm font-bold text-[hsl(207,89%,42%)]">{ep.completionPercent}%</span>
                       </div>
@@ -329,7 +330,13 @@ export default function TaskDetailPage() {
                       min="0"
                       max="100"
                       value={myPercent}
-                      onChange={(e) => setMyPercent(e.target.value === "" ? "" : Math.min(100, Math.max(0, Number(e.target.value))))}
+                      onChange={(e) =>
+                        setMyPercent(
+                          e.target.value === ""
+                            ? ""
+                            : Math.min(100, Math.max(0, Number(e.target.value)))
+                        )
+                      }
                       placeholder={String(myProgress?.completionPercent ?? 0)}
                       className="w-full px-3 py-2 border border-[hsl(214,32%,88%)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(207,89%,45%)] transition-all"
                     />
