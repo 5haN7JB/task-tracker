@@ -1,13 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
+  const { user, isLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Redirect to dashboard once auth state resolves with a user
+  useEffect(() => {
+    if (!isLoading && user) {
+      setLocation("/dashboard");
+    }
+  }, [user, isLoading, setLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,9 +29,9 @@ export default function LoginPage() {
     setLoading(false);
     if (authErr) {
       setError(authErr.message || "Invalid email or password");
-    } else {
-      setLocation("/dashboard");
     }
+    // No setLocation here — the useEffect above handles redirect
+    // once AuthContext resolves the user profile.
   };
 
   const handleGoogle = async () => {

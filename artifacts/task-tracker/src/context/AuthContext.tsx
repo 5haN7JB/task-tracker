@@ -56,6 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Mark loading BEFORE the async profile fetch so ProtectedRoute
+      // shows a spinner instead of bouncing the user back to /login.
+      setIsLoading(true);
       if (session?.user) {
         const profile = await fetchProfile(session.user.id);
         setUser(profile);
