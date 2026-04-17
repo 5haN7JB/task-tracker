@@ -53,19 +53,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Subscribe to auth state changes (login, logout, token refresh, OAuth callback)
+    // NOTE: Do NOT use async inside onAuthStateChange — it holds the GoTrue lock
+    // and causes "Lock not released within 5000ms". Use setTimeout(0) instead.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Mark loading BEFORE the async profile fetch so ProtectedRoute
-      // shows a spinner instead of bouncing the user back to /login.
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setIsLoading(true);
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        setUser(profile);
-      } else {
-        setUser(null);
-      }
-      setIsLoading(false);
+      setTimeout(async () => {
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id);
+          setUser(profile);
+        } else {
+          setUser(null);
+        }
+        setIsLoading(false);
+      }, 0);
     });
 
     return () => subscription.unsubscribe();
